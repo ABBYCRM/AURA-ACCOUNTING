@@ -223,7 +223,7 @@ function ChangePasswordForm({ onMsg }: { onMsg: (s: string) => void }) {
         <input type="password" className="input" value={current} onChange={(e) => setCurrent(e.target.value)} required />
       </div>
       <div>
-        <label className="label">New password (min 8 chars)</label>
+        <label className="label">New password (min 4 chars)</label>
         <input type="password" minLength={8} className="input" value={next} onChange={(e) => setNext(e.target.value)} required />
       </div>
       <button type="submit" disabled={loading} className="btn-primary">{loading ? 'Saving…' : 'Change password'}</button>

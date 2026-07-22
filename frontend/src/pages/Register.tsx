@@ -53,8 +53,8 @@ export default function Register() {
               <input type="email" className="input" value={form.email} onChange={upd('email')} required />
             </div>
             <div>
-              <label className="label">Password (min 8 chars)</label>
-              <input type="password" className="input" value={form.password} onChange={upd('password')} minLength={8} required />
+              <label className="label">Password (min 4 chars)</label>
+              <input type="password" className="input" value={form.password} onChange={upd('password')} minLength={4} required />
             </div>
             {err && <div className="text-sm text-red-600 bg-red-50 border border-red-200 rounded-lg px-3 py-2">{err}</div>}
             <button type="submit" disabled={loading} className="btn-primary w-full">

@@ -9,7 +9,7 @@ const router = Router();
 
 const registerSchema = z.object({
   email: z.string().email(),
-  password: z.string().min(8),
+  password: z.string().min(4),
   name: z.string().min(1),
   companyName: z.string().min(1),
 });
@@ -128,7 +128,7 @@ router.patch('/me', requireAuth, (req: Request, res: Response) => {
 router.post('/change-password', requireAuth, (req: Request, res: Response) => {
   const userId = req.user!.userId;
   const body = z
-    .object({ currentPassword: z.string(), newPassword: z.string().min(8) })
+    .object({ currentPassword: z.string(), newPassword: z.string().min(4) })
     .safeParse(req.body);
   if (!body.success) return res.status(400).json({ error: 'Invalid input' });
   const row = db.prepare('SELECT passwordHash FROM users WHERE id = ?').get(userId) as any;
