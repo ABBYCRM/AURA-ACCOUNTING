@@ -1,0 +1,35 @@
+services:
+  - type: web_service
+    name: AURA-ACCOUNTING
+    runtime: node
+    plan: starter
+    region: oregon
+    branch: main
+    autoDeploy: false
+    buildCommand: cd frontend && npm install --no-audit --no-fund && npm run build && cd ../backend && npm install --no-audit --no-fund && npm run build
+    startCommand: cd backend && node dist/server.js
+    envVars:
+      - key: NODE_ENV
+        value: production
+      - key: PORT
+        value: 10000
+      - key: DATABASE_PATH
+        value: /var/data/aura-accounting.sqlite
+      - key: JWT_SECRET
+        generateValue: true
+      - key: SESSION_SECRET
+        generateValue: true
+      - key: QBO_CLIENT_ID
+        sync: false
+      - key: QBO_CLIENT_SECRET
+        sync: false
+      - key: QBO_REDIRECT_URI
+        sync: false
+      - key: QBO_ENVIRONMENT
+        value: sandbox
+      - key: APP_URL
+        value: https://aura-accounting.onrender.com
+    disk:
+      name: data
+      mountPath: /var/data
+      sizeGB: 1

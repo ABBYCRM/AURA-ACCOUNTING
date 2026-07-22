@@ -1,0 +1,14 @@
+node_modules/
+dist/
+build/
+.env
+.env.local
+*.sqlite
+*.sqlite-journal
+*.log
+.DS_Store
+.vite/
+coverage/
+playwright-report/
+test-results/
+artifacts/
