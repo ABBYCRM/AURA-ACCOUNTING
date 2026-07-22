@@ -97,4 +97,3 @@ if (process.env.NODE_ENV !== 'test' && require.main === module) {
 }
 
 export default app;
-// Last verified: Wed Jul 22 20:53:38 UTC 2026
