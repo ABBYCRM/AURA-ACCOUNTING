@@ -1,19 +1,39 @@
 #!/bin/bash
+# Recreate AURA-Accounting service from scratch
+# Usage: bash scripts/recreate.sh
+# This preserves the URL (aura-accounting.onrender.com) by reusing the slug.
+
 set -e
-export RND="rnd_L7QTwh0BWePkcjHqwy1BVWWCvJ5P"
+RND="${RENDER_API_KEY:-rnd_L7QTwh0BWePkcjHqwy1BVWWCvJ5P}"
+TEAM="tea-d8qqtternols73ehmla0"
+REPO="https://github.com/ABBYCRM/AURA-ACCOUNTING"
 
-# Delete existing
-echo "=== Delete old service ==="
-curl -s -X DELETE -H "Authorization: Bearer $RND" "https://api.render.com/v1/services/srv-d9gitcflk1mc73ftgeq0" > /dev/null
-echo "Deleted"
+# 1. Delete any existing service with this name
+EXISTING=$(curl -s -H "Authorization: Bearer $RND" "https://api.render.com/v1/services?limit=50" | \
+  python3 -c "
+import json, sys
+d = json.load(sys.stdin)
+items = d if isinstance(d, list) else d.get('services', [])
+for s in items:
+    name = s.get('service', {}).get('name') if isinstance(s.get('service'), dict) else s.get('name')
+    if name == 'aura-accounting':
+        print(s.get('service', s).get('id'))
+        break")
+if [ -n "$EXISTING" ]; then
+  echo "=== Deleting existing $EXISTING ==="
+  curl -s -X DELETE -H "Authorization: Bearer $RND" "https://api.render.com/v1/services/$EXISTING" -o /dev/null -w "HTTP %{http_code}\n"
+  sleep 5
+fi
 
-# Create new
-echo "=== Create new service ==="
-RES=$(curl -s -X POST -H "Authorization: Bearer $RND" -H "Content-Type: application/json" https://api.render.com/v1/services --data '{
+# 2. Create new service
+echo "=== Creating aura-accounting service ==="
+RES=$(curl -s -X POST -H "Authorization: Bearer $RND" -H "Content-Type: application/json" \
+  "https://api.render.com/v1/services" --data @- <<JSON
+{
   "type": "web_service",
-  "name": "AURA-ACCOUNTING",
-  "ownerId": "tea-d8qqtternols73ehmla0",
-  "repo": "https://github.com/ABBYCRM/AURA-ACCOUNTING",
+  "name": "aura-accounting",
+  "ownerId": "$TEAM",
+  "repo": "$REPO",
   "branch": "main",
   "autoDeploy": "no",
   "serviceDetails": {
@@ -22,33 +42,38 @@ RES=$(curl -s -X POST -H "Authorization: Bearer $RND" -H "Content-Type: applicat
     "region": "oregon",
     "runtime": "node",
     "envSpecificDetails": {
-      "buildCommand": "cd frontend && npm install --no-audit --no-fund && npm run build && cd ../backend && npm install --no-audit --no-fund && npm run build",
+      "buildCommand": "cd backend && npm install --no-audit --no-fund",
       "startCommand": "cd backend && node dist/server.js"
-    }
+    },
+    "healthCheckPath": "/api/health"
   }
-}')
-echo "Create response:"
-echo "$RES" | python3 -c "import json,sys; d=json.load(sys.stdin); print(d.get('service',{}).get('id') or json.dumps(d))"
-NEW_SRV=$(echo "$RES" | python3 -c "import json,sys; d=json.load(sys.stdin); print(d['service']['id'])")
-echo "New service: $NEW_SRV"
+}
+JSON
+)
+NEW=$(echo "$RES" | python3 -c "import json,sys; d=json.load(sys.stdin); print(d.get('service',d).get('id') or '')")
+if [ -z "$NEW" ]; then
+  echo "Create failed: $RES"
+  exit 1
+fi
+echo "Created: $NEW"
 
-# Env vars
-echo "=== Set env vars ==="
-curl -s -X PUT -H "Authorization: Bearer $RND" -H "Content-Type: application/json" "https://api.render.com/v1/services/$NEW_SRV/env-vars" --data '[
+# 3. Set env vars
+echo "=== Setting env vars ==="
+curl -s -X PUT -H "Authorization: Bearer $RND" -H "Content-Type: application/json" \
+  "https://api.render.com/v1/services/$NEW/env-vars" --data '[
   {"key":"NODE_ENV","value":"production"},
   {"key":"PORT","value":"10000"},
-  {"key":"DATABASE_PATH","value":"/var/data/aura-accounting.sqlite"},
+  {"key":"DATABASE_PATH","value":"/tmp/aura-accounting.sqlite"},
   {"key":"JWT_SECRET","value":"AURA-jwt-prod-secret-32chars-min-2026-07-22"},
   {"key":"SESSION_SECRET","value":"AURA-session-prod-secret-32chars-2026-07-22"},
   {"key":"QBO_ENVIRONMENT","value":"sandbox"},
   {"key":"APP_URL","value":"https://aura-accounting.onrender.com"}
-]' > /dev/null
-echo "Env vars set"
+]' -o /dev/null -w "Env HTTP %{http_code}\n"
 
-# Health check
-echo "=== Add health check ==="
-curl -s -X PATCH -H "Authorization: Bearer $RND" -H "Content-Type: application/json" "https://api.render.com/v1/services/$NEW_SRV" --data '{"serviceDetails":{"healthCheckPath":"/api/health"}}' > /dev/null
-echo "Health check set"
+# 4. Trigger deploy
+echo "=== Triggering deploy ==="
+DEP=$(curl -s -X POST -H "Authorization: Bearer $RND" "https://api.render.com/v1/services/$NEW/deploys")
+echo "$DEP" | python3 -c "import json,sys; d=json.load(sys.stdin); print('Deploy:', d.get('id'), d.get('status'))"
 
-echo "$NEW_SRV" > /workspace/AURA-ACCOUNTING/.srv_id
-echo "Service ID saved to .srv_id: $NEW_SRV"
+echo "Service ID: $NEW"
+echo "URL: https://aura-accounting.onrender.com"

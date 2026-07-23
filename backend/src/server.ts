@@ -64,7 +64,9 @@ app.get('/api/team/users', (req, res) => {
 });
 
 // Serve frontend build (Vite output)
-const frontendDist = path.join(__dirname, '../../frontend/dist');
+const frontendDist = fs.existsSync(path.join(__dirname, '../../frontend/dist'))
+  ? path.join(__dirname, '../../frontend/dist')
+  : path.join(__dirname, '../../../frontend/dist');
 if (fs.existsSync(frontendDist)) {
   app.use(express.static(frontendDist));
   app.get(/^\/(?!api).*/, (_req, res) => {
