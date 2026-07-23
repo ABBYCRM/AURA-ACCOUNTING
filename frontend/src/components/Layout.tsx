@@ -20,10 +20,18 @@ export default function Layout({ children }: { children: React.ReactNode }) {
   const loc = useLocation();
   const [qboStatus, setQboStatus] = useState<{ connected: boolean; configured: boolean } | null>(null);
 
+  const { setAuth } = useAuth();
   useEffect(() => {
     api<{ connected: boolean; configured: boolean }>('/api/qbo/status')
       .then((s) => setQboStatus({ connected: s.connected, configured: s.configured }))
       .catch(() => setQboStatus({ connected: false, configured: false }));
+    api<{ user: any }>('/api/auth/me')
+      .then((r) => {
+        if (r.user && user) {
+          setAuth({ ...user, companyName: r.user.companyName }, useAuth.getState().token || '');
+        }
+      })
+      .catch(() => {});
   }, [loc.pathname]);
 
   return (
