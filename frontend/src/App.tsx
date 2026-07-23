@@ -13,6 +13,7 @@ import Invoices from './pages/Invoices';
 import Expenses from './pages/Expenses';
 import Accounts from './pages/Accounts';
 import Settings from './pages/Settings';
+import IrsForms from './pages/IrsForms';
 
 function Protected({ children }: { children: React.ReactNode }) {
   const { user, token } = useAuth();
@@ -36,6 +37,7 @@ export default function App() {
       <Route path="/expenses" element={<Protected><Expenses /></Protected>} />
       <Route path="/accounts" element={<Protected><Accounts /></Protected>} />
       <Route path="/settings" element={<Protected><Settings /></Protected>} />
+      <Route path="/irs-forms" element={<Protected><IrsForms /></Protected>} />
       <Route path="*" element={<Navigate to="/" replace />} />
     </Routes>
   );

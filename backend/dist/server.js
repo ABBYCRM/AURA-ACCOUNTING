@@ -23,6 +23,8 @@ const expenses_1 = __importDefault(require("./routes/expenses"));
 const accounts_1 = __importDefault(require("./routes/accounts"));
 const reports_1 = __importDefault(require("./routes/reports"));
 const qbo_1 = __importDefault(require("./routes/qbo"));
+const irs_rules_1 = __importDefault(require("./routes/irs-rules"));
+const federal_forms_1 = __importDefault(require("./routes/federal-forms"));
 const app = (0, express_1.default)();
 app.use((0, cors_1.default)({ origin: true, credentials: true }));
 app.use(express_1.default.json({ limit: '10mb' }));
@@ -44,11 +46,13 @@ app.use('/api/contractors', contractors_1.default);
 app.use('/api/payroll', payroll_1.default);
 app.use('/api/w2', w2_1.default);
 app.use('/api/1099', forms1099_1.default);
+app.use('/api/federal-forms', federal_forms_1.default);
 app.use('/api/invoices', invoices_1.default);
 app.use('/api/expenses', expenses_1.default);
 app.use('/api/accounts', accounts_1.default);
 app.use('/api/reports', reports_1.default);
 app.use('/api/qbo', qbo_1.default);
+app.use('/api/irs', irs_rules_1.default);
 app.get('/api/team/users', (req, res) => {
     // List users in the same company
     const auth = req.headers.authorization;

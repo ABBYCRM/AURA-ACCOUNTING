@@ -8,46 +8,34 @@ const zod_1 = require("zod");
 const db_1 = __importDefault(require("../db"));
 const auth_1 = require("../middleware/auth");
 const db_2 = require("../db");
+const irs_rules_1 = require("../services/irs-rules");
 const router = (0, express_1.Router)();
 router.use(auth_1.requireAuth);
-// 2024 federal income tax withholding (simplified — for demo)
-const FED_BRACKETS = [
-    { cap: 11000, rate: 0.10 },
-    { cap: 44725, rate: 0.12 },
-    { cap: 95375, rate: 0.22 },
-    { cap: 182100, rate: 0.24 },
-    { cap: 231250, rate: 0.32 },
-    { cap: 578125, rate: 0.35 },
-    { cap: Infinity, rate: 0.37 },
-];
-const SS_RATE = 0.062;
-const SS_WAGE_BASE_2024 = 168600;
-const MED_RATE = 0.0145;
-const MED_ADDITIONAL_RATE = 0.009;
-const MED_ADDITIONAL_THRESHOLD = 200000;
+// State income tax rate is a per-company setting; we use 5% as the
+// default for businesses that don't override it.
 const STATE_RATE_DEFAULT = 0.05;
-function computeTaxes(grossAnnual, filingStatus, allowances, ytdGross, ytdFed) {
-    // Standard deduction (2024 single = 14600, married = 29200)
-    const stdDeduction = filingStatus === 'married' ? 29200 : 14600;
-    const allowanceValue = 4300; // approximate per allowance
+function computeTaxes(grossAnnual, filingStatus, allowances, taxYear) {
+    // Standard deduction (2026 single = 16,100, married = 32,200, hoh = 24,150, mfs = 16,100)
+    const stdDeduction = filingStatus === 'married' ? irs_rules_1.IRS_TY_2026.STD_DEDUCTION.married
+        : filingStatus === 'hoh' ? irs_rules_1.IRS_TY_2026.STD_DEDUCTION.hoh
+            : filingStatus === 'mfs' ? irs_rules_1.IRS_TY_2026.STD_DEDUCTION.mfs
+                : irs_rules_1.IRS_TY_2026.STD_DEDUCTION.single;
+    // Pre-2020 W-4 had "allowances". Modern W-4 (2020+) uses dependents
+    // credits instead. We retain the legacy behavior for backward compat
+    // but use the 2026 dependent credit values: $2,200/child under 17,
+    // $500/other dependent. We approximate "allowances" as $4,300/ea for
+    // legacy users.
+    const allowanceValue = 4300;
     const taxableIncome = Math.max(0, grossAnnual - stdDeduction - allowanceValue * allowances);
-    let fedAnnual = 0;
-    let remaining = taxableIncome;
-    let prevCap = 0;
-    for (const b of FED_BRACKETS) {
-        const span = Math.min(remaining, b.cap - prevCap);
-        if (span <= 0)
-            break;
-        fedAnnual += span * b.rate;
-        remaining -= span;
-        prevCap = b.cap;
-    }
-    // Effective incremental: take annualized-to-period ratio
-    const ssWagesBase = Math.min(SS_WAGE_BASE_2024, grossAnnual);
-    const ss = ssWagesBase * SS_RATE;
-    const med = grossAnnual * MED_RATE + Math.max(0, grossAnnual - MED_ADDITIONAL_THRESHOLD) * MED_ADDITIONAL_RATE;
+    // Federal income tax via the canonical 2026 brackets
+    const fed = (0, irs_rules_1.computeFedIncomeTax)(taxableIncome, filingStatus, taxYear);
+    // Social Security and Medicare — also via the canonical rules
+    const ss = (0, irs_rules_1.computeSsTax)(grossAnnual, taxYear);
+    const med = (0, irs_rules_1.computeMedTax)(grossAnnual, taxYear);
+    // State income tax (assumes the standard 5% rate; replace with a
+    // real state-tax service for production filing)
     const state = Math.max(0, grossAnnual - stdDeduction) * STATE_RATE_DEFAULT;
-    return { fed: fedAnnual, ss, med, state };
+    return { fed, ss, med, state };
 }
 const payrollLineSchema = zod_1.z.object({
     employeeId: zod_1.z.number().int(),
@@ -106,8 +94,9 @@ router.post('/', (req, res) => {
                 : (emp.hourlyRate || 0) * line.hours;
             // Annualize current YTD + this period to compute incremental tax
             const newYtdGross = emp.ytdGross + periodGross;
-            const before = computeTaxes(emp.ytdGross, emp.filingStatus || 'single', emp.allowances, emp.ytdGross, emp.ytdFed);
-            const after = computeTaxes(newYtdGross, emp.filingStatus || 'single', emp.allowances, newYtdGross, emp.ytdFed);
+            const taxYear = new Date().getFullYear();
+            const before = computeTaxes(emp.ytdGross, emp.filingStatus || 'single', emp.allowances, taxYear);
+            const after = computeTaxes(newYtdGross, emp.filingStatus || 'single', emp.allowances, taxYear);
             const fed = after.fed - before.fed;
             const ss = after.ss - before.ss;
             const med = after.med - before.med;

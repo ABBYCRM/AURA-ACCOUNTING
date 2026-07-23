@@ -3,7 +3,8 @@ import { z } from 'zod';
 import db from '../db';
 import { requireAuth } from '../middleware/auth';
 import { logAudit } from '../db';
-import { generate1099Pdf } from '../services/pdf';
+import { generate1099Pdf, generate1099MiscPdf } from '../services/pdf';
+import { IRS_TY_2026, IRS_TY_2024, rulesForYear } from '../services/irs-rules';
 
 const router = Router();
 router.use(requireAuth);
@@ -22,11 +23,22 @@ router.get('/', (req: Request, res: Response) => {
   res.json({ forms: rows, year, formType });
 });
 
-// 1099-NEC threshold ($600 in 2024)
-const NEC_THRESHOLD = 600;
+/**
+ * 1099-NEC threshold:
+ *  - Pre-2026 (Public Law 119-21 / One Big Beautiful Bill Act): $600
+ *  - For payments made in 2026 and later: $2,000 (inflation-adjusted annually
+ *    starting 2027 per Pub. 1099 (2026)).
+ *
+ * Source: https://www.irs.gov/pub/irs-prior/p1099--2026.pdf
+ *         https://www.irs.gov/instructions/i1099mec
+ */
+function necThresholdForYear(year: number): number {
+  return rulesForYear(year).THRESHOLD_1099_NEC;
+}
 
 router.get('/nec-eligible', (req: Request, res: Response) => {
   const year = Number(req.query.year) || new Date().getFullYear();
+  const threshold = necThresholdForYear(year);
   const rows = db
     .prepare(
       `SELECT c.*,
@@ -35,8 +47,8 @@ router.get('/nec-eligible', (req: Request, res: Response) => {
        WHERE c.companyId = ?
        ORDER BY c.ytdPayments DESC`
     )
-    .all(NEC_THRESHOLD, req.user!.companyId);
-  res.json({ contractors: rows, threshold: NEC_THRESHOLD, year });
+    .all(threshold, req.user!.companyId);
+  res.json({ contractors: rows, threshold, year });
 });
 
 router.post('/generate/:contractorId/:year', (req: Request, res: Response) => {
@@ -50,12 +62,11 @@ router.post('/generate/:contractorId/:year', (req: Request, res: Response) => {
   const amount = Math.round(contractor.ytdPayments * 100) / 100;
   db.prepare(
     `INSERT INTO form1099_records
-     (companyId, contractorId, taxYear, formType, box1NonemployeeComp, box2DirectSales, box3, box4FedTax, status)
-     VALUES (?, ?, ?, 'NEC', ?, 0, ?, 0, 'draft')
+     (companyId, contractorId, taxYear, formType, box1NonemployeeComp, box4FedTax, status)
+     VALUES (?, ?, ?, 'NEC', ?, 0, 'draft')
      ON CONFLICT(contractorId, taxYear, formType) DO UPDATE SET
-       box1NonemployeeComp = excluded.box1NonemployeeComp,
-       box3 = excluded.box3`
-  ).run(req.user!.companyId, contractorId, year, amount, amount);
+       box1NonemployeeComp = excluded.box1NonemployeeComp`
+  ).run(req.user!.companyId, contractorId, year, amount);
 
   const row = db
     .prepare("SELECT id FROM form1099_records WHERE contractorId = ? AND taxYear = ? AND formType = 'NEC'")
@@ -98,8 +109,12 @@ router.get('/pdf/:id', (req: Request, res: Response) => {
     .get(req.params.id, req.user!.companyId) as any;
   if (!row) return res.status(404).json({ error: 'Not found' });
   res.setHeader('Content-Type', 'application/pdf');
-  res.setHeader('Content-Disposition', `inline; filename="1099-NEC-${row.taxYear}-${row.lastName}.pdf"`);
-  generate1099Pdf(row, res);
+  res.setHeader('Content-Disposition', `inline; filename="1099-${row.formType}-${row.taxYear}-${row.lastName}.pdf"`);
+  if (row.formType === 'MISC') {
+    generate1099MiscPdf(row, res);
+  } else {
+    generate1099Pdf(row, res);
+  }
 });
 
 export default router;

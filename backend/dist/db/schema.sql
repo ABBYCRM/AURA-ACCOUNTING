@@ -93,15 +93,38 @@ CREATE TABLE IF NOT EXISTS w2_records (
   companyId INTEGER NOT NULL,
   employeeId INTEGER NOT NULL,
   taxYear INTEGER NOT NULL,
-  wages REAL NOT NULL DEFAULT 0,
-  fedTax REAL NOT NULL DEFAULT 0,
-  ssWages REAL NOT NULL DEFAULT 0,
-  ssTax REAL NOT NULL DEFAULT 0,
-  medWages REAL NOT NULL DEFAULT 0,
-  medTax REAL NOT NULL DEFAULT 0,
-  stateWages REAL NOT NULL DEFAULT 0,
-  stateTax REAL NOT NULL DEFAULT 0,
-  box12Codes TEXT NOT NULL DEFAULT '{}',
+  -- Core boxes 1-6
+  wages REAL NOT NULL DEFAULT 0,            -- Box 1
+  fedTax REAL NOT NULL DEFAULT 0,           -- Box 2
+  ssWages REAL NOT NULL DEFAULT 0,          -- Box 3
+  ssTax REAL NOT NULL DEFAULT 0,            -- Box 4
+  medWages REAL NOT NULL DEFAULT 0,         -- Box 5
+  medTax REAL NOT NULL DEFAULT 0,           -- Box 6
+  -- Box 7 (SS tips) and Box 8 (allocated tips)
+  ssTips REAL NOT NULL DEFAULT 0,
+  allocatedTips REAL NOT NULL DEFAULT 0,
+  -- Boxes 10, 11
+  dependentCare REAL NOT NULL DEFAULT 0,    -- Box 10
+  nonqualifiedPlans REAL NOT NULL DEFAULT 0, -- Box 11
+  -- Box 12 — up to 4 codes
+  box12aCode TEXT, box12aAmount REAL DEFAULT 0,
+  box12bCode TEXT, box12bAmount REAL DEFAULT 0,
+  box12cCode TEXT, box12cAmount REAL DEFAULT 0,
+  box12dCode TEXT, box12dAmount REAL DEFAULT 0,
+  -- Box 13 checkboxes
+  retirementPlan INTEGER NOT NULL DEFAULT 0,
+  thirdPartySickPay INTEGER NOT NULL DEFAULT 0,
+  -- Box 14 — state-specific
+  box14Other TEXT,
+  -- State/local (boxes 15-20)
+  box15State TEXT,                         -- e.g. 'CA'
+  box15StateId TEXT,                      -- state employer ID
+  stateWages REAL NOT NULL DEFAULT 0,      -- Box 16
+  stateTax REAL NOT NULL DEFAULT 0,        -- Box 17
+  localWages REAL NOT NULL DEFAULT 0,      -- Box 18
+  localTax REAL NOT NULL DEFAULT 0,        -- Box 19
+  localityName TEXT,                       -- Box 20
+  -- Status
   status TEXT NOT NULL DEFAULT 'draft',
   createdAt TEXT NOT NULL DEFAULT (datetime('now')),
   UNIQUE(employeeId, taxYear),
@@ -114,11 +137,37 @@ CREATE TABLE IF NOT EXISTS form1099_records (
   companyId INTEGER NOT NULL,
   contractorId INTEGER NOT NULL,
   taxYear INTEGER NOT NULL,
-  formType TEXT NOT NULL DEFAULT 'NEC',
-  box1NonemployeeComp REAL NOT NULL DEFAULT 0,
-  box2DirectSales REAL NOT NULL DEFAULT 0,
-  box3 REAL NOT NULL DEFAULT 0,
-  box4FedTax REAL NOT NULL DEFAULT 0,
+  formType TEXT NOT NULL DEFAULT 'NEC',     -- 'NEC' or 'MISC'
+  -- 1099-NEC fields (Dec 2026 revision)
+  box1NonemployeeComp REAL NOT NULL DEFAULT 0,   -- Box 1a
+  box1CashTips REAL NOT NULL DEFAULT 0,           -- Box 1b (new TY2026)
+  box1Ttoc TEXT,                                  -- Box 1c TTOC (new TY2026)
+  box1QOvertime REAL NOT NULL DEFAULT 0,          -- Box 1d (new TY2026)
+  box2DirectSales INTEGER NOT NULL DEFAULT 0,    -- Box 2 (≥$5,000)
+  box3GoldenParachute REAL NOT NULL DEFAULT 0,   -- Box 3
+  box4FedTax REAL NOT NULL DEFAULT 0,            -- Box 4
+  box5Sec409A REAL NOT NULL DEFAULT 0,            -- Box 5
+  box6StateTax REAL NOT NULL DEFAULT 0,           -- Box 6
+  box7StateId TEXT,                               -- Box 7
+  box8StateIncome REAL NOT NULL DEFAULT 0,        -- Box 8
+  -- 1099-MISC fields (Dec 2026 revision)
+  box1Rents REAL NOT NULL DEFAULT 0,
+  box2Royalties REAL NOT NULL DEFAULT 0,
+  box3OtherIncome REAL NOT NULL DEFAULT 0,
+  box5FishingBoat REAL NOT NULL DEFAULT 0,
+  box6Medical REAL NOT NULL DEFAULT 0,
+  box7DirectSales INTEGER NOT NULL DEFAULT 0,
+  box8SubstitutePayments REAL NOT NULL DEFAULT 0,
+  box9CropInsurance REAL NOT NULL DEFAULT 0,
+  box10Attorney REAL NOT NULL DEFAULT 0,
+  box11StateTax REAL NOT NULL DEFAULT 0,
+  box12Sec409A REAL NOT NULL DEFAULT 0,
+  box13StateId TEXT,
+  box14StateIncome REAL NOT NULL DEFAULT 0,
+  box15NQDefComp REAL NOT NULL DEFAULT 0,
+  -- Account number
+  accountNumber TEXT,
+  -- Status
   status TEXT NOT NULL DEFAULT 'draft',
   createdAt TEXT NOT NULL DEFAULT (datetime('now')),
   UNIQUE(contractorId, taxYear, formType),

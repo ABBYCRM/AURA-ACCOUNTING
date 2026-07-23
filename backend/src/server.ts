@@ -18,6 +18,8 @@ import expensesRouter from './routes/expenses';
 import accountsRouter from './routes/accounts';
 import reportsRouter from './routes/reports';
 import qboRouter from './routes/qbo';
+import irsRulesRouter from './routes/irs-rules';
+import federalFormsRouter from './routes/federal-forms';
 
 const app = express();
 
@@ -43,11 +45,13 @@ app.use('/api/contractors', contractorsRouter);
 app.use('/api/payroll', payrollRouter);
 app.use('/api/w2', w2Router);
 app.use('/api/1099', forms1099Router);
+app.use('/api/federal-forms', federalFormsRouter);
 app.use('/api/invoices', invoicesRouter);
 app.use('/api/expenses', expensesRouter);
 app.use('/api/accounts', accountsRouter);
 app.use('/api/reports', reportsRouter);
 app.use('/api/qbo', qboRouter);
+app.use('/api/irs', irsRulesRouter);
 
 app.get('/api/team/users', (req, res) => {
   // List users in the same company

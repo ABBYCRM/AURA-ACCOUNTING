@@ -12,6 +12,7 @@ const nav = [
   { to: '/invoices', label: 'Invoices', icon: '🧾' },
   { to: '/expenses', label: 'Expenses', icon: '💸' },
   { to: '/accounts', label: 'Chart of Accounts', icon: '📚' },
+  { to: '/irs-forms', label: 'IRS Forms & Rules', icon: '🇺🇸' },
   { to: '/settings', label: 'Settings', icon: '⚙️' },
 ];
 
